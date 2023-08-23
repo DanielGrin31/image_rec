@@ -7,8 +7,8 @@ import mxnet as mx
 import numpy as np
 
 app = Flask(__name__, static_folder="C:/python/static")
+bbb=2
 app.secret_key = 'your_secret_key'
-
 UPLOAD_FOLDER = 'static'
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 
