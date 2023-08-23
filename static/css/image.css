@@ -1,0 +1,72 @@
+body, html {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    font-family: Arial, sans-serif;
+    background-color: #e8e8e8;
+}
+
+.main-container {
+    max-width: 800px;
+    margin: 5% auto;
+    background-color: #ffffff;
+    padding: 30px;
+    border-radius: 8px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+}
+
+h1 {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.input-container {
+    margin-bottom: 20px;
+}
+
+label {
+    font-weight: bold;
+    display: block;
+    margin-bottom: 10px;
+    font-size: 1.2em;
+}
+
+input[type=file] {
+    width: 100%;
+    padding: 10px;
+    background-color: #f2f2f2;
+    border-radius: 8px;
+    border: 2px solid #ccc;
+    font-size: 1em;
+}
+
+.button-container {
+    display: flex;
+    justify-content: space-between;
+}
+
+input[type=submit] {
+    width: 30%;
+    padding: 12px;
+    font-size: 1.1em;
+    background-color: #007bff;
+    color: #ffffff;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+input[type=submit]:hover {
+    background-color: #0056b3;
+}
+
+.image-container {
+    margin-top: 30px;
+}
+
+.image-container img {
+    max-width: 100%;
+    margin: 10px 0;
+    border: 1px solid #ccc;
+}

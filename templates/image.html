@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Processing</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/image.css') }}">
+</head>
+
+<body>
+    <div class="main-container">
+        <h1>Upload and Process Images</h1>
+        <form action="/" method="POST" enctype="multipart/form-data">
+            <div class="input-container">
+                <label for="image1">Choose Image 1:</label>
+                <input type="file" name="image1" accept="image/*">
+                <!-- Display the name of the uploaded file for Image 1 -->
+                <span class="uploaded-file">{{ uploaded_files[0] if uploaded_files and len(uploaded_files) > 0 else "" }}</span>
+            </div>
+
+            <div class="input-container">
+                <label for="image2">Choose Image 2:</label>
+                <input type="file" name="image2" accept="image/*">
+                <!-- Display the name of the uploaded file for Image 2 -->
+                <span class="uploaded-file">{{ uploaded_files[1] if uploaded_files and len(uploaded_files) > 1 else "" }}</span>
+            </div>
+
+            <div class="button-container">
+                <input type="submit" name="action" value="Upload">
+                <input type="submit" name="action" value="Detect">
+                <input type="submit" name="action" value="Align">
+                <input type="submit" name="action" value="Clear">
+            </div>
+        </form>
+
+        <!-- Message display -->
+        <div class="message-container">
+            {{ message }}
+        </div>
+
+        <div class="image-container">
+            {% for image in images %}
+            <img src="{{ url_for('static', filename=image) }}" alt="Processed Image">
+            {% endfor %}
+        </div>
+    </div>
+</body>
+
+</html>
