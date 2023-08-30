@@ -54,11 +54,11 @@
             {% for image_info in images %}
             <div class="aligned-image">
                 <img src="{{ url_for('static', filename=image_info) }}" alt="Processed Image">
-                <div class="face-number">
+                <!-- <div class="face-number">
                     {% if 'aligned_face_' + (selected_face | string) in image_info %}
                     {{ selected_face + 1 }}
                     {% endif %}
-                </div>
+                </div> -->
             </div>
             {% endfor %}
         </div>
@@ -71,19 +71,17 @@
 
         comboBox.addEventListener("change", function() {
             selectedOption.textContent = comboBox.options[comboBox.selectedIndex].text;
-
             const faceNum = parseInt(comboBox.options[comboBox.selectedIndex].value);
             document.getElementById("hidden-selected-face").value = faceNum ;
-
-            alignedImages.forEach((imgDiv, index) => {
-        if (faceNum === -2) {
-            imgDiv.style.display = 'inline-block'; // Display all images if "All" is selected.
-        } else if (index + 1 === faceNum) {
-            imgDiv.style.display = 'inline-block'; // Display the specific image.
-        } else {
-            imgDiv.style.display = 'none'; // Hide all other images.
-        }
-            });
+        //     alignedImages.forEach((imgDiv, index) => {
+        // if (faceNum === -2) {
+        //     imgDiv.style.display = 'inline-block'; // Display all images if "All" is selected.
+        // } else if (index + 1 === faceNum) {
+        //     imgDiv.style.display = 'inline-block'; // Display the specific image.
+        // } else {
+        //     imgDiv.style.display = 'none'; // Hide all other images.
+        // }
+        //     });
         });
     </script>
 </body>
