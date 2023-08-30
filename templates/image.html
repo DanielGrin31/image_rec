@@ -11,20 +11,21 @@
 <body>
     <div class="main-container">
         <h1>Upload and Process Images</h1>
+
         <form action="/" method="POST" enctype="multipart/form-data">
             <div class="input-container">
                 <label for="image1">Choose Image 1:</label>
                 <input type="file" name="image1" accept="image/*">
-                <!-- Display the name of the uploaded file for Image 1 -->
-                <span class="uploaded-file">{{ uploaded_files[0] if uploaded_files and len(uploaded_files) > 0 else "" }}</span>
+                <span class="uploaded_images">{{ images[0] if images and images_length > 0 else "" }}</span>
             </div>
 
             <div class="input-container">
                 <label for="image2">Choose Image 2:</label>
                 <input type="file" name="image2" accept="image/*">
-                <!-- Display the name of the uploaded file for Image 2 -->
-                <span class="uploaded-file">{{ uploaded_files[1] if uploaded_files and len(uploaded_files) > 1 else "" }}</span>
+                <span class="uploaded_images">{{ images[1] if images and images_length > 1 else "" }}</span>
             </div>
+
+            <input type="hidden" name="selected_face" id="hidden-selected-face" value="-2">
 
             <div class="button-container">
                 <input type="submit" name="action" value="Upload">
@@ -34,17 +35,57 @@
             </div>
         </form>
 
-        <!-- Message display -->
+        <div class="combo-box-container">
+            <label for="combo-box">Select a Face:</label>
+            <select id="combo-box">
+                <option value="-2">All</option>
+                {% for i in range(faces_length) %}
+                <option value="{{ i }}">Face {{ i + 1 }}</option>
+                {% endfor %}
+            </select>
+            <p>You selected: <span id="selected-option">None</span></p>
+        </div>
+
         <div class="message-container">
             {{ message }}
         </div>
 
         <div class="image-container">
-            {% for image in images %}
-            <img src="{{ url_for('static', filename=image) }}" alt="Processed Image">
+            {% for image_info in images %}
+            <div class="aligned-image">
+                <img src="{{ url_for('static', filename=image_info) }}" alt="Processed Image">
+                <div class="face-number">
+                    {% if 'aligned_face_' + (selected_face | string) in image_info %}
+                    {{ selected_face + 1 }}
+                    {% endif %}
+                </div>
+            </div>
             {% endfor %}
         </div>
     </div>
+
+    <script>
+        const comboBox = document.getElementById("combo-box");
+        const selectedOption = document.getElementById("selected-option");
+        const alignedImages = document.querySelectorAll('.aligned-image');
+
+        comboBox.addEventListener("change", function() {
+            selectedOption.textContent = comboBox.options[comboBox.selectedIndex].text;
+
+            const faceNum = parseInt(comboBox.options[comboBox.selectedIndex].value);
+            document.getElementById("hidden-selected-face").value = faceNum ;
+
+            alignedImages.forEach((imgDiv, index) => {
+        if (faceNum === -2) {
+            imgDiv.style.display = 'inline-block'; // Display all images if "All" is selected.
+        } else if (index + 1 === faceNum) {
+            imgDiv.style.display = 'inline-block'; // Display the specific image.
+        } else {
+            imgDiv.style.display = 'none'; // Hide all other images.
+        }
+            });
+        });
+    </script>
 </body>
 
 </html>
