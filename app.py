@@ -6,10 +6,22 @@ from insightface.utils.face_align import norm_crop
 import mxnet as mx
 import numpy as np
 import uuid
+from PIL import Image
+from flask import send_from_directory
+
+
 
 app = Flask(__name__, static_folder="C:/python/static")
+@app.route('/pool/<path:filename>')
+def custom_static(filename):
+    return send_from_directory(r'C:\python\pool', filename)
+
+@app.route('/static_images/<path:filename>')
+def processed_static(filename):
+    return send_from_directory(r'C:\python\static', filename)
 app.secret_key = 'your_secret_key'
-UPLOAD_FOLDER = r'C:\python\static'
+UPLOAD_FOLDER = r'C:\python\pool'
+STATIC_FOLDER = r'C:\python\static'
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 
 
@@ -34,6 +46,19 @@ def load_model():
 def calculate_similarity(emb_a, emb_b):
     similarity = np.dot(emb_a, emb_b) / (np.linalg.norm(emb_a) * np.linalg.norm(emb_b))
     return similarity
+def alignforcheck(selected_face,filename,images):
+    path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+    img = cv2.imread(path)
+    faces = detector.get(img)
+    for face in faces:
+             landmarks = face['kps'].astype(np.int) 
+             aligned_filename = f"aligned_{selected_face}_{filename}"   # Name contains the selected face index
+             aligned_path =os.path.join(STATIC_FOLDER, aligned_filename)
+             aligned_img = norm_crop(img, landmarks,112,'arcface')                            
+             cv2.imwrite(aligned_path, aligned_img)
+             images.append(aligned_filename)
+             uploaded_images = images
+             return uploaded_images
 
 def extract_embedding(embedder, face_data):
     try:        
@@ -115,7 +140,10 @@ def index():
                 
         elif action in ["Detect", "Align"]:
             for filename in uploaded_images:
-                path = os.path.join(app.config['UPLOAD_FOLDER'], filename)                
+                if "aligned" in filename or "detected" in filename :
+                  path=  os.path.join(STATIC_FOLDER, filename)
+                else:    
+                 path = os.path.join(app.config['UPLOAD_FOLDER'], filename)                
                 img = cv2.imread(path)                
                 faces = detector.get(img)
                 message += f"{len(faces)} detected faces. "
@@ -130,7 +158,7 @@ def index():
                               for face in faces:                         
                                landmarks = face['kps'].astype(np.int)                   
                                aligned_filename = f"aligned_{face_count}_{filename}"
-                               aligned_path = os.path.join(app.config['UPLOAD_FOLDER'], aligned_filename)
+                               aligned_path = os.path.join(STATIC_FOLDER, aligned_filename)
                                aligned_img = norm_crop(img, landmarks,112,'arcface')                                                     
                                cv2.imwrite(aligned_path, aligned_img)                              
                                images.append(aligned_filename)
@@ -141,7 +169,7 @@ def index():
                             face = faces[selected_face]
                             landmarks = face['kps'].astype(np.int)
                             aligned_filename = f"aligned_{selected_face}_{filename}"   # Name contains the selected face index
-                            aligned_path = os.path.join(app.config['UPLOAD_FOLDER'], aligned_filename)
+                            aligned_path = os.path.join(STATIC_FOLDER, aligned_filename)
                             aligned_img = norm_crop(img, landmarks,112,'arcface')                            
                             cv2.imwrite(aligned_path, aligned_img)
                             images.append(aligned_filename)
@@ -154,7 +182,7 @@ def index():
                                 cv2.circle(img, (int(point[0]), int(point[1])), 2, (0, 255, 0), -2)
                         
                         detected_filename = "detected_" + filename
-                        detected_path = os.path.join(app.config['UPLOAD_FOLDER'], detected_filename)
+                        detected_path = os.path.join(STATIC_FOLDER, detected_filename)
                         # message += f"path {detected_path}. "
                         cv2.imwrite(detected_path, img)
                         images.append(detected_filename)
@@ -169,18 +197,23 @@ def index():
         
         elif action=="Compare":
            showAlert=True
-           if len(check_uploaded_images) == 2:
+           check_uploaded_images = [x for x in check_uploaded_images if x != '']
+           uploaded_images=alignforcheck(selected_face,check_uploaded_images[0],images)
+           uploaded_images=alignforcheck(selected_face,check_uploaded_images[1],images)
+           if len(check_uploaded_images) ==2:
                embedder = load_model_for_embedding()
                if embedder:
                    image_paths = [os.path.join(app.config['UPLOAD_FOLDER'], filename) for filename in check_uploaded_images]
                    embeddings = []
-                   for path in image_paths:               
+                   if len(uploaded_images)==2:
+                    for path in image_paths:                        
                        img = cv2.imread(path)                
                        faces = embedder.get(img)   
                        if faces:
                            embedding = extract_embedding(embedder, faces[0])
                            if embedding is not None:  # Assuming there's only one face in the image
                             embeddings.append(embedding)
+                           # uploaded_images=alignforcheck(selected_face,path,images)      
                            else:
                                print("No embedding extracted.")  # Debug log
                        else:
@@ -196,12 +229,58 @@ def index():
                        else:
                             sim_message="THIS IS PROBABLY NOT THE SAME PERSON"
 
+                   elif uploaded_images!=2:
+                        message = "choose 2 images!"
                    else:
-                        message = "Error: Failed to extract embeddings from images."
+                       message = "Error: Failed to extract embeddings from images."
                else:
                     message = "Error: Embedder model not initialized."
            else:
                 message = "Select exactly 2 images for comparison."   
+        elif action=="Check":
+            
+            check_uploaded_images = [x for x in check_uploaded_images if x != '']
+            uploaded_images=alignforcheck(selected_face,check_uploaded_images[0],images)
+            if len(check_uploaded_images) ==1:
+             embedder = load_model_for_embedding()
+             user_image_path = os.path.join(app.config['UPLOAD_FOLDER'], check_uploaded_images[0])
+             user_img = cv2.imread(user_image_path)
+             user_faces = embedder.get(user_img)
+             user_embedding = extract_embedding(embedder, user_faces[0])
+             max_similarity = -1
+             most_similar_image = None
+             with os.scandir(UPLOAD_FOLDER) as entries:
+              for entry in entries:
+               if  entry.name != check_uploaded_images[0] and check_uploaded_images[0] not in entry.name:
+                 if check_uploaded_images[0] not in entry.name:
+
+
+                  if entry.is_file()  and entry.name.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tif', '.tiff')):
+                   with Image.open(entry.path) as img:
+                    if embedder:
+                     img = cv2.imread(entry.path)
+                     faces = embedder.get(img)
+                     if faces:
+                        embedding = extract_embedding(embedder, faces[0])
+                        if embedding is not None:
+                              similarity = calculate_similarity(user_embedding, embedding)
+                              if similarity > max_similarity:
+                                  max_similarity = similarity
+                                  most_similar_image = entry.name
+            if most_similar_image:
+                # uploaded_images.append(most_similar_image)
+                 uploaded_images=alignforcheck(selected_face,most_similar_image,images)
+                 message = f"The most similar image is {most_similar_image} with similarity of {max_similarity:.4f}"
+                 
+                              
+                                  
+
+
+                      
+
+                    
+                    
+                
                      
         images_length = len(uploaded_images)
         
@@ -222,6 +301,6 @@ def index():
 
 if __name__ == "__main__":
     try:
-        app.run(debug=True, port=5056)
+        app.run(debug=True, port=5057)
     except Exception as e:
         print(f"Error: {e}")

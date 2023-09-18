@@ -32,6 +32,7 @@
                 <input type="submit" name="action" value="Detect">
                 <input type="submit" name="action" value="Align">
                 <input type="submit" name="action" value="Compare">
+                <input type="submit" name="action" value="Check">
                 <input type="submit" name="action" value="Clear">
             </div>
         </form>
@@ -57,7 +58,11 @@
         <div class="image-container">
             {% for image_info in images %}
             <div class="aligned-image">
-                <img src="{{ url_for('static', filename=image_info) }}" alt="Processed Image">
+                {% if "aligned_" in image_info or "detected_" in image_info %}
+                <img src="{{ url_for('processed_static', filename=image_info) }}" alt="Processed Image">
+            {% else %}
+                <img src="{{ url_for('custom_static', filename=image_info) }}" alt="Uploaded Image">
+            {% endif %}
                 <div class="face-number">
                     {% if 'aligned_face_' + (selected_face | string) in image_info %}
                     {{ selected_face + 1 }}
