@@ -2,3 +2,4 @@ pool/
 static/
 .venv/
 __pycache__/
+.vscode/
