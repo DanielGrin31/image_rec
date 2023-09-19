@@ -1,0 +1,4 @@
+pool/
+static/
+.venv/
+__pycache__/
