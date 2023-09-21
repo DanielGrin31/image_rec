@@ -1,24 +1,45 @@
-body, html {
-    margin: 0;
-    padding: 0;
-    height: 100%;
-    font-family: 'Roboto', sans-serif; /* Change font to Roboto for a cleaner look */
-    background: #f1f5f9;  /* Lighter shade of grey for subtle contrast */
-}
-
-.main-container {
-    max-width: 80%;  /* Increase container size */
-    margin: 10px auto;
-    background-color: #ffffff;
-    padding: 20px;  /* More padding for spaciousness */
-    border-radius: 12px;  /* Increase radius for softer corners */
-    box-shadow: 0px 10px 25px rgba(0, 0, 0, 0.05);  /* More prominent shadow */
-    border: 1px solid #e1e1e1;  /* Subtle border */
-    overflow-y: auto;
+body{
     min-height: 100vh;
-    position: relative;
-    overflow: hidden;
+    background: #5256ad !important;
 }
+.main-container{
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+  .drag-area{
+    border: 2px dashed #fff;
+    border-bottom: 0px;
+    border-radius: 0.2;
+    height:30rem;
+  }
+  
+  .drag-area.active{
+    border: 2px solid #fff;
+  }
+  .drag-area .icon{
+    font-size: 100px;
+  }
+  
+  .drag-area header{
+    font-size: 25px;
+    font-weight: 500;
+  }
+  
+  .drag-area span{
+    font-size: 25px;
+    font-weight: 500;
+    margin: 10px 0 15px 0;
+  }
+  .drag-area button{
+    font-size: 20px;
+    font-weight: 500;
+    color: #5256ad;
+  }
+  .drag-area img{
+    object-fit: fill;
+  }
+  
 
 h1 {
     text-align: center;
@@ -27,59 +48,8 @@ h1 {
     margin-top: 0;  
 }
 
-.input-container {
-    margin-bottom: 25px;
-    margin-top: 15px;
-}
 
-label {
-    font-weight: 500; /* Slight reduction for a modern feel */
-    display: block;
-    margin-bottom: 15px;
-    font-size: 1.3em;  /* Increase font size for prominence */
-    color: #555;  /* Subtle text color */
-}
-
-.file-wrapper {
-    position: relative;
-    overflow: hidden;
-    display: inline-block;
-}
-
-.file-wrapper input[type=file] {
-    position: absolute;
-    top: 0;
-    right: 0;
-    min-width: 100%;
-    min-height: 100%;
-    opacity: 0;
-    outline: none;
-    cursor: pointer;
-}
-
-.file-wrapper .btn-file {
-    padding: 12px 15px;  /* More padding */
-    background-color: #007bff;  /* Button color */
-    color: #fff;  /* Text color */
-    border-radius: 8px;
-    border: none;
-    font-size: 1.1em;
-    display: block;
-    text-align: center;  /* Center text */
-    transition: background-color 0.3s ease;  /* Transition effect */
-}
-
-.file-wrapper .btn-file:hover {
-    background-color: #0056b3;
-}
-
-.button-container {
-    display: flex;
-    justify-content: space-between;
-    margin-top: 30px;  /* Spacing */
-}
-
-input[type=submit] {
+.submit-btn{
     width: 30%;
     padding: 12px;
     font-size: 1.1em;
@@ -91,19 +61,13 @@ input[type=submit] {
     transition: background-color 0.3s ease, transform 0.3s ease;  /* Added transform */
 }
 
-input[type=submit]:hover {
+
+
+.submit-btn:hover {
     background-color: #0056b3;
     transform: translateY(-2px);  /* Slight lift on hover */
 }
 
-.image-container {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 20px;
-    white-space: nowrap;
-    max-width: 90%;    
-}
 
 .image-container img {   
     max-width: 100%;
@@ -162,11 +126,6 @@ input[type=submit]:hover {
 
 
 
-.aligned-image {
-    display: inline-block;
-    position: relative;
-    max-width: 50%;
-}
 .selection-row {
     display: flex;
     align-items: center; /* Vertically aligns items in the center */
