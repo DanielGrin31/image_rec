@@ -9,7 +9,7 @@ import uuid
 from PIL import Image
 from flask import send_from_directory
 
-
+# new version
 
 app = Flask(__name__, static_folder="C:/python/static")
 @app.route('/pool/<path:filename>')
