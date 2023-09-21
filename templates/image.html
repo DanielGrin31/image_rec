@@ -1,114 +1,92 @@
-<!DOCTYPE html>
-<html lang="en">
-
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Image Processing</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/image.css') }}">
-</head>
-
-<body>
-    <div class="main-container">
-        <h1>Upload and Process Images</h1>
-
-        <form action="/" method="POST" enctype="multipart/form-data">
-            <div class="input-container">
-                <label for="image1">Choose Image 1:</label>
-                <input type="file" name="image1" accept="image/*">
-                <span class="uploaded_images">{{ images[0] if images and images_length > 0 else "" }}</span>
-            </div>
-
-            <div class="input-container">
-                <label for="image2">Choose Image 2:</label>
-                <input type="file" name="image2" accept="image/*">
-                <span class="uploaded_images">{{ images[1] if images and images_length > 1 else "" }}</span>
-            </div>
-
-            <input type="hidden" name="selected_face" id="hidden-selected-face" value="-2">
-
-            <div class="button-container">
-                <input type="submit" name="action" value="Upload">
-                <input type="submit" name="action" value="Detect">
-                <input type="submit" name="action" value="Align">
-                <input type="submit" name="action" value="Compare">
-                <input type="submit" name="action" value="Check">
-                <input type="submit" name="action" value="Clear">
-            </div>
-        </form>
-
-        <div class="combo-box-container">
-            <label for="combo-box">Select a Face:</label>
-            <select id="combo-box" name="comboValue">
-                <option value="-2">All</option>
-                {% for i in range(faces_length) %}
-                <option value="{{ i }}">Face {{ i + 1 }}</option>
-                {% endfor %}
-            </select>
-            <p>You selected: <span id="selected-option">None</span></p>
-        </div>
-
-        <div class="message-container">
-            {{ message }}
-        </div>
-        <div class="sim_message-container">
-            {{ sim_message }}
-        </div>
-
-        <div class="image-container">
-            {% for image_info in images %}
-            <div class="aligned-image">
-                {% if "aligned_" in image_info or "detected_" in image_info %}
-                <img src="{{ url_for('processed_static', filename=image_info) }}" alt="Processed Image">
-            {% else %}
-                <img src="{{ url_for('custom_static', filename=image_info) }}" alt="Uploaded Image">
-            {% endif %}
-                <div class="face-number">
-                    {% if 'aligned_face_' + (selected_face | string) in image_info %}
-                    {{ selected_face + 1 }}
-                    {% endif %}
+{% extends "base.html" %} {% block title %} Image Processing {% endblock %} {%
+block content %}
+<h1 class="text-light m-4">Upload and Process Images</h1>
+<div class="main-container">
+    <form action="/" method="POST" enctype="multipart/form-data" class="w-100">
+        <div class="d-flex align-items-center justify-content-center">
+            {% for i in range(2) %}
+            <div class="d-flex flex-column col-4">
+                <!-- Drag area  -->
+                <div id="dragarea{{i+1}}"
+                    class="drag-area position-relative d-flex align-items-center justify-content-center flex-column rounded-top-2 p-5">
+                    <img class="d-none position-absolute rounded-top-2 h-100 w-100" alt="image" />
+                    <input type="file" name="image{{i+1}}" accept="image/*" hidden />
+                    <input type="number" name="face_num{{i+1}}" accept="image/*" value="-2" id="face_num_input{{i+1}}" hidden />
+                    <div class="d-flex align-items-center justify-content-center flex-column"
+                        id="dragarea{{i+1}}-content">
+                        <div class="icon text-light user-select-none">
+                            <i class="fas fa-cloud-upload-alt"></i>
+                        </div>
+                        <header class="text-light user-select-none text-center">
+                            Drag & Drop to Upload File
+                        </header>
+                        <span class="text-light user-select-none">OR</span>
+                        <button type="button" class="btn btn-outline-primary btn-light px-4 py-2">
+                            Browse File
+                        </button>
+                    </div>
+                </div>
+                <div class="form-floating w-100">
+                    <select id="combo-box{{i+1}}" class="form-select rounded-top-0 rounded-bottom-2">
+                        <option value="-2">All</option>
+                        {% for j in range(faces_length[i]) %}
+                        <option value="{{ j }}">Face {{ j + 1 }}</option>
+                        {% endfor %}
+                    </select>
+                    <label for="combo-box{{i+1}}">Select a Face:</label>
                 </div>
             </div>
-            {% endfor %}
+
+            {% if i == 0 %}
+            <!-- Buttons -->
+            <div class="d-flex col-2 flex-column align-items-center">
+                {% if current|length==0 %}
+                <input type="submit" name="action" value="Upload" class="submit-btn w-75 m-2" />
+                {% endif %}
+                <input type="submit" name="action" value="Detect" class="submit-btn w-75 m-2" />
+                <input type="submit" name="action" value="Align" class="submit-btn w-75 m-2" />
+                <input type="submit" name="action" value="Check" class=" submit-btn w-75 m-2" />
+                <input type="submit" name="action" value="Compare" class=" submit-btn w-75 m-2" />
+                <input type="submit" name="action" value="Clear" class="submit-btn w-75 m-2" />
+            </div>
+            {% endif %} {% endfor %}
         </div>
+    </form>
+</div>
+
+<div id="messageContainer" style="z-index: 11;" class="position-fixed bottom-0 end-0 p-0 ">
+</div>
+<div class="image-container d-flex justify-content-center flex-wrap w-100 text-center">
+    {% for image_info in images %}
+    <div class="aligned-image col-6">
+        {% if "aligned_" in image_info or "detected_" in image_info %}
+        <img src="{{ url_for('processed_static', filename=image_info) }}" alt="Processed Image" />
+        {% else %}
+        <img src="{{ url_for('custom_static', filename=image_info) }}" alt="Uploaded Image" />
+        {% endif %} {% if 'aligned_face_' + (selected_face | string) in image_info
+        %}
+        <div class="face-number">{{ selected_face + 1 }}</div>
+        {% endif %}
     </div>
-    <script>
-        function showAlert(sim_message) {
-            alert(sim_message);
-        }
-    </script>
-
-
-
-{% if showAlert %}
+    {% endfor %}
+</div>
 <script>
-    showAlert("{{ sim_message }}");
-</script>
-{% endif %}
-    
-
-    <script>
-        const comboBox = document.getElementById("combo-box");
-        const selectedOption = document.getElementById("selected-option");
-        const alignedImages = document.querySelectorAll('.aligned-image');
-
-        comboBox.addEventListener("change", function() {
-            selectedOption.textContent = comboBox.options[comboBox.selectedIndex].text;
-
-            const faceNum = parseInt(comboBox.options[comboBox.selectedIndex].value);
-            document.getElementById("hidden-selected-face").value = faceNum ;
-
-            alignedImages.forEach((imgDiv, index) => {
-        if (faceNum === -2) {
-            imgDiv.style.display = 'inline-block'; // Display all images if "All" is selected.
-        } else if (index + 1 === faceNum) {
-            imgDiv.style.display = 'inline-block'; // Display the specific image.
-        } else {
-            imgDiv.style.display = 'none'; // Hide all other images.
-        }
-            });
+    const errors = "{{errors}}".slice(1, -1)
+        .split(",")
+        .map(function (item) {
+            return item.replace(/&#39;/g, "").trim();
         });
-    </script>
-</body>
+    const messages = "{{messages}}".slice(1, -1)
+        .split(",")
+        .map(function (item) {
+            return item.replace(/&#39;/g, "").trim();
+        });
 
-</html>
+    const current_images = "{{current}}"
+        .slice(1, -1)
+        .split(",")
+        .map(function (item) {
+            return item.replace(/&#39;/g, "").trim();
+        });
+</script>
+{% endblock %}
