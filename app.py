@@ -54,8 +54,9 @@ def alignforcheck(selected_face,filename,images):
              landmarks = face['kps'].astype(np.int) 
              aligned_filename = f"aligned_{selected_face}_{filename}"   # Name contains the selected face index
              aligned_path =os.path.join(STATIC_FOLDER, aligned_filename)
-             aligned_img = norm_crop(img, landmarks,112,'arcface')                            
-             cv2.imwrite(aligned_path, aligned_img)
+             if not os.path.exists(aligned_path):
+                aligned_img = norm_crop(img, landmarks,112,'arcface') 
+                cv2.imwrite(aligned_path, aligned_img) 
              images.append(aligned_filename)
              uploaded_images = images
              return uploaded_images
@@ -88,6 +89,7 @@ detector = load_model()
 def index():
     showAlert=False
     images = []
+    unaligned_images = []
     message = ""
     sim_message=""
     faces_length = 0
@@ -101,6 +103,11 @@ def index():
     check_uploaded_images = session.get('check_uploaded_images', [])
    
     selected_face = int(request.form.get('selected_face', -2))
+    combochange = session.get('combochange', selected_face)
+    if(selected_face != -2):
+     combochange = selected_face
+     session['combochange'] = combochange
+
     
 
 
@@ -132,10 +139,11 @@ def index():
             
             # Detect faces immediately after uploading to fill the combo box
             for filename in uploaded_images:
-                path = os.path.join(app.config['UPLOAD_FOLDER'], filename)                
-                img = cv2.imread(path)                
-                faces = detector.get(img)
-                if faces:
+                path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+                if("aligned" not in path):                
+                 img = cv2.imread(path)                
+                 faces = detector.get(img)
+                 if faces:
                     faces_length += len(faces)
                 
         elif action in ["Detect", "Align"]:
@@ -169,10 +177,19 @@ def index():
                             face = faces[selected_face]
                             landmarks = face['kps'].astype(np.int)
                             aligned_filename = f"aligned_{selected_face}_{filename}"   # Name contains the selected face index
+                           
                             aligned_path = os.path.join(STATIC_FOLDER, aligned_filename)
                             aligned_img = norm_crop(img, landmarks,112,'arcface')                            
                             cv2.imwrite(aligned_path, aligned_img)
                             images.append(aligned_filename)
+
+                            # unaligned_filename = f"unaligned_{selected_face}_{filename}" # Name contains the selected face index
+                            # unaligned_path = os.path.join(app.config['UPLOAD_FOLDER'], unaligned_filename)
+                            # bbox = face['bbox'].astype(np.int)
+                            # x, y, x2, y2 = bbox[0], bbox[1], bbox[2], bbox[3]
+                            # unaligned_face = img[y:y2, x:x2]
+                            # cv2.imwrite(unaligned_path, unaligned_face)
+                            # unaligned_images.append(unaligned_filename)
                        
                     
                     elif action == "Detect":
@@ -194,12 +211,18 @@ def index():
         elif action == "Clear":
             uploaded_images = []
             check_uploaded_images = []
+            combochange = selected_face
+            session['combochange'] = combochange
         
         elif action=="Compare":
            showAlert=True
            check_uploaded_images = [x for x in check_uploaded_images if x != '']
-           uploaded_images=alignforcheck(selected_face,check_uploaded_images[0],images)
-           uploaded_images=alignforcheck(selected_face,check_uploaded_images[1],images)
+           if(combochange==2):
+            uploaded_images=alignforcheck(selected_face,check_uploaded_images[0],images)
+            uploaded_images=alignforcheck(selected_face,check_uploaded_images[1],images)
+           else: 
+               uploaded_images=alignforcheck(combochange,check_uploaded_images[0],images)
+               uploaded_images=alignforcheck(combochange,check_uploaded_images[1],images)
            if len(check_uploaded_images) ==2:
                embedder = load_model_for_embedding()
                if embedder:
@@ -210,7 +233,12 @@ def index():
                        img = cv2.imread(path)                
                        faces = embedder.get(img)   
                        if faces:
-                           embedding = extract_embedding(embedder, faces[0])
+                           if combochange == -2:
+                                 embedding = extract_embedding(embedder, faces[0]) 
+                           elif(len(faces) == 1):
+                              embedding = extract_embedding(embedder, faces[0])         
+                           else:
+                              embedding = extract_embedding(embedder, faces[combochange])  
                            if embedding is not None:  # Assuming there's only one face in the image
                             embeddings.append(embedding)
                            # uploaded_images=alignforcheck(selected_face,path,images)      
@@ -240,13 +268,23 @@ def index():
         elif action=="Check":
             
             check_uploaded_images = [x for x in check_uploaded_images if x != '']
-            uploaded_images=alignforcheck(selected_face,check_uploaded_images[0],images)
+            if(combochange==-2):
+             uploaded_images=alignforcheck(selected_face,check_uploaded_images[0],images)
+            else:
+             uploaded_images=alignforcheck(combochange,check_uploaded_images[0],images)  
             if len(check_uploaded_images) ==1:
              embedder = load_model_for_embedding()
+           #  if(combochange==-2):
              user_image_path = os.path.join(app.config['UPLOAD_FOLDER'], check_uploaded_images[0])
+             #else:
+               #user_image_path = os.path.join(app.config['UPLOAD_FOLDER'], unaligned_filename[0])  
              user_img = cv2.imread(user_image_path)
              user_faces = embedder.get(user_img)
-             user_embedding = extract_embedding(embedder, user_faces[0])
+             if(combochange==-2):
+              user_embedding = extract_embedding(embedder, user_faces[0])
+             else:
+              user_embedding = extract_embedding(embedder, user_faces[combochange])   
+
              max_similarity = -1
              most_similar_image = None
              with os.scandir(UPLOAD_FOLDER) as entries:
@@ -269,8 +307,11 @@ def index():
                                   most_similar_image = entry.name
             if most_similar_image:
                 # uploaded_images.append(most_similar_image)
-                 uploaded_images=alignforcheck(selected_face,most_similar_image,images)
-                 message = f"The most similar image is {most_similar_image} with similarity of {max_similarity:.4f}"
+                # if(combochange==-2):
+                  uploaded_images=alignforcheck(selected_face,most_similar_image,images)
+                # else:
+                #    uploaded_images=alignforcheck(combochange,most_similar_image,images)
+                  message = f"The most similar image is {most_similar_image} with similarity of {max_similarity:.4f}"
                  
                               
                                   

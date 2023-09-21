@@ -39,7 +39,7 @@
 
         <div class="combo-box-container">
             <label for="combo-box">Select a Face:</label>
-            <select id="combo-box">
+            <select id="combo-box" name="comboValue">
                 <option value="-2">All</option>
                 {% for i in range(faces_length) %}
                 <option value="{{ i }}">Face {{ i + 1 }}</option>
