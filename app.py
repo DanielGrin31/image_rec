@@ -289,9 +289,6 @@ def index():
                         else:
                             print("No faces detected.")  # Debug log
                             errors.append("No faces detected in one or both images.");
-                            # break
-
-                        
                     else:
                         errors.append("Error: Embedder model not initialized.")
                 else:
@@ -314,15 +311,19 @@ def index():
 
 
         elif action == "Check":
+
+            image1 = current_images[0]
+            check_uploaded_images = [
+                image1
+            ]
+            face_num_1 = int(request.form.get("face_num1"))
+            combochanges = [face_num_1]
+            
             check_uploaded_images = [x for x in check_uploaded_images if x != ""]
-            if combochange == -2:
-                uploaded_images = alignforcheck(
-                    selected_face, check_uploaded_images[0], images
-                )
-            else:
-                uploaded_images = alignforcheck(
-                    combochange, check_uploaded_images[0], images
-                )
+            uploaded_images = alignforcheck(
+                combochanges[0], check_uploaded_images[0], images
+            )
+            most_similar_image = None               
             if len(check_uploaded_images) == 1:
                 embedder = load_model_for_embedding()
                 #  if(combochange==-2):
@@ -375,7 +376,7 @@ def index():
                                                     if similarity > max_similarity:
                                                         max_similarity = similarity
                                                         most_similar_image = entry.name
-            if most_similar_image:
+            if most_similar_image!=None and most_similar_image:
                 # uploaded_images.append(most_similar_image)
                 # if(combochange==-2):
                 uploaded_images = alignforcheck(
@@ -383,7 +384,7 @@ def index():
                 )
                 # else:
                 #    uploaded_images=alignforcheck(combochange,most_similar_image,images)
-                message = f"The most similar image is {most_similar_image} with similarity of {max_similarity:.4f}"
+                messages.append(f"The most similar image is {most_similar_image} with similarity of {max_similarity:.4f}");
         
         
         images_length = len(uploaded_images)
