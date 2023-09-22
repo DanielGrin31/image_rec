@@ -54,9 +54,11 @@ block content %}
     </form>
 </div>
 
-<div id="messageContainer" style="z-index: 11;" class="position-fixed bottom-0 end-0 p-0 ">
+<div id="messageContainer" style="z-index: 11;" class="position-fixed bottom-0 w-25 end-0 p-0 ">
+
+
 </div>
-<div class="image-container d-flex justify-content-center flex-wrap w-100 text-center">
+<div class="image-container d-flex justify-content-center flex-wrap  text-center">
     {% for image_info in images %}
     <div class="aligned-image col-6">
         {% if "aligned_" in image_info or "detected_" in image_info %}
