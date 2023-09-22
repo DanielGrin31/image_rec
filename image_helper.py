@@ -2,7 +2,7 @@ import numpy as np
 from insightface.utils.face_align import norm_crop
 import os
 import cv2
-
+from PIL import Image
 
 class ImageHelper:
     ALLOWED_EXTENSIONS = {
@@ -92,7 +92,7 @@ class ImageHelper:
             return None
         
 
-    def generate_embeddings(self,path,selected_face):
+    def generate_embedding(self,path,selected_face):
         errors=[];
         embedding=None;
         if self.embedder:
@@ -107,8 +107,7 @@ class ImageHelper:
                     embedding = ImageHelper.extract_embedding(
                         faces[selected_face]
                     )
-                if embedding is  None:
-                    print("No embedding extracted.")  # Debug log
+               
             else:
                 print("No faces detected.")  # Debug log
                 errors.append("No faces detected in one or both images.")
@@ -116,6 +115,35 @@ class ImageHelper:
             errors.append("Error: Embedder model not initialized.")
         return embedding,errors;
 
+    def get_most_similar_image(self,selected_face,filename):
+        user_image_path = os.path.join(self.UPLOAD_FOLDER, filename)
+        errors=[]
+        user_embedding,temp_err=self.generate_embedding(user_image_path,selected_face);
+        errors=errors+temp_err
+        max_similarity = -1
+        most_similar_face_num = None
+        with os.scandir(self.UPLOAD_FOLDER) as entries:
+            for entry in entries:
+                if (
+                    entry.name != filename
+                    and filename not in entry.name
+                ):
+                    if entry.is_file() and ImageHelper.allowed_file(entry.name):
+                        with Image.open(entry.path) as img:
+                            img = cv2.imread(entry.path)
+                            faces = self.embedder.get(img)
+                            if faces:
+                                for i in range(len(faces)):
+                                    embedding = (ImageHelper.extract_embedding(faces[i]))
+                                    if embedding is not None:
+                                        similarity = ImageHelper.calculate_similarity(
+                                            user_embedding, embedding
+                                        )
+                                        if similarity > max_similarity:
+                                            max_similarity = similarity
+                                            most_similar_image = entry.name
+                                            most_similar_face_num =i;
+        return most_similar_image,most_similar_face_num,max_similarity,errors;
 
     @staticmethod
     def allowed_file(filename):

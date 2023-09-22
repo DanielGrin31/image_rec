@@ -21,8 +21,13 @@ Before you begin, ensure you have the following installed:
 
 ### Clone the Repository
 ```bash
+<<<<<<< HEAD
 git clone https://github.com/yourusername/your-flask-app.git
 cd your-flask-app
+=======
+git clone https://github.com/ofekhta1/image_rec.git
+cd image_rec
+>>>>>>> c239ea6 (Cleaned up code and updated README)
 ```	
 
 ### Set Up Virtual Environment (Optional but Recommended)

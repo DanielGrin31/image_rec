@@ -38,7 +38,7 @@ app.config["ROOT_FOLDER"] = APP_DIR
 
 detector = ModelLoader.load_detector()
 embedder = ModelLoader.load_embedder()
-helper = ImageHelper(detector,embedder, UPLOAD_FOLDER, STATIC_FOLDER)
+helper = ImageHelper(detector, embedder, UPLOAD_FOLDER, STATIC_FOLDER)
 
 
 @app.route("/", methods=["GET", "POST"])
@@ -118,11 +118,13 @@ def index():
             for i in range(len(current_images)):
                 if len(current_images) == 2:
                     # Generate an embedding for a specific face(first by default) in each image
-                    embedding,temp_err=helper.generate_embeddings(image_paths[i],combochanges[i])
+                    embedding, temp_err = helper.generate_embedding(
+                        image_paths[i], combochanges[i]
+                    )
                     # Add the errors and embeddings from the helper function to the local variables
-                    errors=errors+temp_err;
+                    errors = errors + temp_err
                     if embedding is not None:
-                        embeddings.append(embedding);
+                        embeddings.append(embedding)
                     else:
                         print("No embedding extracted.")  # Debug log
                 else:
@@ -146,81 +148,21 @@ def index():
 
         elif action == "Check":
             most_similar_image = None
+            similarity = -1
             if len(current_images) == 1:
-                embedder = ModelLoader.load_embedder()
-                user_image_path = os.path.join(UPLOAD_FOLDER, current_images[0])
-                # else:
-<<<<<<< HEAD
-                user_embedding=helper.generate_embedding(user_image_path,combochanges[0]);
-=======
-                # user_image_path = os.path.join(app.config['UPLOAD_FOLDER'], unaligned_filename[0])
-                user_img = cv2.imread(user_image_path)
-                user_faces = embedder.get(user_img)
-                if combochanges[0] == -2:
-                    user_embedding = extract_embedding(embedder, user_faces[0])
-                else:
-                    user_embedding = extract_embedding(
-                        embedder, user_faces[combochange]
-                    )
->>>>>>> ab2820c (Update README)
+                (
+                    most_similar_image,
+                    most_similar_face_num,
+                    similarity,
+                    temp_err,
+                ) = helper.get_most_similar_image(combochanges[0], current_images[0])
+                errors=errors+temp_err;
 
-                max_similarity = -1
-                most_similar_image = None
-                most_similar_path = None
-                with os.scandir(UPLOAD_FOLDER) as entries:
-                    for entry in entries:
-                        if (
-                            entry.name != current_images[0]
-                            and current_images[0] not in entry.name
-                        ):
-                            if current_images[0] not in entry.name:
-                                if entry.is_file() and entry.name.lower().endswith(
-                                    (ImageHelper.ALLOWED_EXTENSIONS)
-                                ):
-                                    with Image.open(entry.path) as img:
-                                        if embedder:
-                                            img = cv2.imread(entry.path)
-                                            faces = embedder.get(img)
-                                            if faces:
-<<<<<<< HEAD
-                                                embedding = (ImageHelper.extract_embedding(faces[0]))
-                                                if embedding is not None:
-                                                    similarity = ImageHelper.calculate_similarity(
-                                                        user_embedding, embedding
-                                                    )
-                                                    if similarity > max_similarity:
-                                                        max_similarity = similarity
-                                                        most_similar_image = entry.name
-                                                        most_similar_path = entry.path
             if most_similar_image:
                 messages.append(
-                    f"The most similar image is {most_similar_image} with similarity of {max_similarity:.4f}")
-
-=======
-                                                for face in faces:
-                                                    embedding = extract_embedding(
-                                                        embedder, face
-                                                    )
-                                                    if embedding is not None:
-                                                        similarity = calculate_similarity(
-                                                            user_embedding, embedding
-                                                        )
-                                                        if similarity > max_similarity:
-                                                            max_similarity = similarity
-                                                            most_similar_image = entry.name
-            if most_similar_image!=None and most_similar_image:
-                # uploaded_images.append(most_similar_image)
-                # if(combochange==-2):
-                uploaded_images = alignforcheck(
-                    selected_face, most_similar_image, images
+                    f"The most similar face is no. {most_similar_face_num+1} in image {most_similar_image} with similarity of {similarity:.4f}"
                 )
-                # else:
-                #    uploaded_images=alignforcheck(combochange,most_similar_image,images)
-                messages.append(f"The most similar image is {most_similar_image} with similarity of {max_similarity:.4f}");
-        
-        
-        images_length = len(uploaded_images)
->>>>>>> ab2820c (Update README)
+
         session["current_images"] = current_images
         session["uploaded_images"] = uploaded_images
         session["faces_length"] = faces_length
