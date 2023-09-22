@@ -149,7 +149,7 @@ def index():
         elif action == "Check":
             most_similar_image = None
             similarity = -1
-            if len(current_images) == 1:
+            if len(current_images) >0:
                 (
                     most_similar_image,
                     most_similar_face_num,
@@ -157,12 +157,20 @@ def index():
                     temp_err,
                 ) = helper.get_most_similar_image(combochanges[0], current_images[0])
                 errors=errors+temp_err;
-
+            else:
+                errors.append("no images selected for check");
             if most_similar_image:
                 messages.append(
                     f"The most similar face is no. {most_similar_face_num+1} in image {most_similar_image} with similarity of {similarity:.4f}"
                 )
-
+                if(len(current_images)==1):
+                    current_images.append(most_similar_image);
+                else:
+                    current_images[1]=most_similar_image;
+                
+                faces_length[1] = helper.create_aligned_images(
+                    current_images[1], []
+                )
         session["current_images"] = current_images
         session["uploaded_images"] = uploaded_images
         session["faces_length"] = faces_length
