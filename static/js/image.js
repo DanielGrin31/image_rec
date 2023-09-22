@@ -21,17 +21,17 @@ async function postAction(action, data = {}) {
 }
 function addErrorMessage(message) {
     $("#messageContainer").append(`
-    <div class="alert alert-danger m-1 me-0" role="alert">
+    <div class="alert alert-danger m-1 me-0 d-flex" role="alert">
         ${message}
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        <button type="button" class="btn-close ms-auto"  data-bs-dismiss="alert" aria-label="Close"></button>
     </div>
 `);
 }
 function addInfoMessage(message) {
     $("#messageContainer").append(`
-    <div class="alert alert-primary m-1 me-0" role="alert">
+    <div class="alert alert-primary m-1 me-0 align d-flex " role="alert">
         ${message}
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        <button type="button" class="btn-close ms-auto"  data-bs-dismiss="alert" aria-label="Close"></button>
     </div>
 `);
 }
@@ -83,6 +83,7 @@ function setupDropArea($dropArea, areaNumber) {
     $dropArea.on("drop", function (event) {
         event.preventDefault();
         const file = event.originalEvent.dataTransfer.files[0];
+        $input[0].files=event.originalEvent.dataTransfer.files;
         showFile($dropArea, file);
     });
     $comboBox.on("change", async function () {
@@ -146,6 +147,7 @@ $("#compareBtn").on("click", async function () {
 });
 
 function showFile(dragArea, file) {
+   
     let fileType = file.type;
     let validExtensions = ["image/jpeg", "image/jpg", "image/png"];
     if (validExtensions.includes(fileType)) {
