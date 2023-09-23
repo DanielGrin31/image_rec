@@ -1,24 +1,22 @@
-from flask import Flask, render_template, request, session, url_for, redirect
+from flask import Flask, render_template, request, session, url_for, redirect, jsonify
 import os
-import cv2
-from insightface.app import FaceAnalysis
-from insightface.utils.face_align import norm_crop
-import numpy as np
-from PIL import Image
+import requests as req
 from image_helper import ImageHelper
 from model_loader import ModelLoader
+from flask_cors import CORS, cross_origin
 from flask import send_from_directory
-
+import tempfile
 APP_DIR = os.path.dirname(__file__)
 UPLOAD_FOLDER = os.path.join(APP_DIR, "pool")
 STATIC_FOLDER = os.path.join(APP_DIR, "static")
-
 # Create the folders if they don't exist
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(STATIC_FOLDER, exist_ok=True)
 
 app = Flask(__name__, static_folder=STATIC_FOLDER)
 
+cors = CORS(app)
+app.config['CORS_HEADERS'] = 'Content-Type'
 
 @app.route("/pool/<path:filename>")
 def custom_static(filename):
@@ -30,161 +28,187 @@ def processed_static(filename):
     return send_from_directory(STATIC_FOLDER, filename)
 
 
+@app.route("/api/upload", methods=["POST"])
+def upload_image():
+    images = []
+    errors = []
+    faces_length = [0, 0]
+    current_images = []
+    for image_name in ["image1", "image2"]:
+        file = request.files.get(image_name)
+
+        if file and file.filename:
+            if ImageHelper.allowed_file(file.filename):
+                session.pop("uploaded_images", None)
+                path = os.path.join(UPLOAD_FOLDER, file.filename)
+                try:
+                    file.save(path)
+                except Exception as e:
+                    errors.append(
+                        f"Failed to save {file.filename} due to error: {str(e)}"
+                    )
+                images.append(file.filename)
+                current_images.append(file.filename)
+            else:
+                errors.append(f"Invalid file format for {file.filename}. ")
+
+    # Detect faces immediately after uploading to fill the combo box
+
+    for i in range(len(current_images)):
+        faces_length[i] = helper.create_aligned_images(current_images[i], images)
+    return jsonify({"images": images, "faces_length": faces_length, "errors": errors})
+
+
+@app.route("/api/align", methods=["POST"])
+def align_image():
+    uploaded_images = request.form.getlist("images")
+    faces_length = [0, 0]
+    messages = []
+    errors = []
+    images = []
+    for i in range(len(uploaded_images)):
+        filename = uploaded_images[i]
+        if "aligned" in filename or "detected" in filename:
+            path = os.path.join(STATIC_FOLDER, filename)
+        else:
+            path = os.path.join(UPLOAD_FOLDER, filename)
+        if os.path.exists(path):
+            face_count = helper.create_aligned_images(filename, images)
+            faces_length[i]=face_count;
+            messages.append(f"{face_count} detected faces in {filename}.")
+        else:
+            errors.append(f"File {filename} does not exist!")
+    return jsonify(
+        {
+            "images": images,
+            "faces_length": faces_length,
+            "errors": errors,
+            "messages": messages,
+        }
+    )
+
+
+@app.route("/api/detect", methods=["POST"])
+def detect_image():
+    uploaded_images = request.form.getlist("images")
+    faces_length = [0, 0]
+    messages = []
+    errors = []
+    images = []
+    for i in range(len(uploaded_images)):
+        filename = uploaded_images[i]
+        if "aligned" in filename or "detected" in filename:
+            path = os.path.join(STATIC_FOLDER, filename)
+        else:
+            path = os.path.join(UPLOAD_FOLDER, filename)
+        if os.path.exists(path):
+            face_count = helper.detect_faces_in_image(
+                filename, images
+                )
+            faces_length[i]=face_count;
+            messages.append(f"{face_count} detected faces in {filename}.")
+        else:
+            errors.append(f"File {filename} does not exist!")
+    return jsonify(
+        {
+            "images": images,
+            "faces_length": faces_length,
+            "errors": errors,
+            "messages": messages,
+        }
+    )
+
+
+@app.route("/api/compare", methods=["POST"])
+def compare_image():
+
+    uploaded_images = request.form.getlist("images");
+    combochanges=[int(x) for x in request.form.getlist("selected_faces")];
+    embeddings = []
+    messages = []
+    errors = []
+    image_paths = [
+        os.path.join(UPLOAD_FOLDER, filename) for filename in uploaded_images
+    ]
+    for i in range(len(uploaded_images)):
+        if len(uploaded_images) == 2:
+            # Generate an embedding for a specific face(first by default) in each image
+            embedding, temp_err = helper.generate_embedding(
+                image_paths[i], combochanges[i]
+            )
+            # Add the errors and embeddings from the helper function to the local variables
+            errors = errors + temp_err
+            if embedding is not None:
+                embeddings.append(embedding)
+            else:
+                print("No embedding extracted.")  # Debug log
+        else:
+            errors.append("Select exactly 2 images for comparison.")
+
+    if len(embeddings) == 2:
+        # Calculate similarity between the two images
+        similarity = ImageHelper.calculate_similarity(
+            embeddings[0], embeddings[1]
+        )
+        messages.append(f"Similarity: {similarity:.4f}")
+        if similarity >= 0.6518:
+            messages.append("THIS IS PROBABLY THE SAME PERSON")
+        else:
+            messages.append("THIS IS PROBABLY NOT THE SAME PERSON")
+
+    elif len(uploaded_images) != 2:
+        errors.append("choose 2 images!")
+    else:
+        errors.append("Error: Failed to extract embeddings from images.")
+    
+    return jsonify(
+            {
+                "errors": errors,
+                "messages": messages,
+            });
+
+@app.route("/api/check", methods=["POST"])
+def find_similar_image():
+    most_similar_image = None
+    messages=[];
+    errors=[];
+    similarity = -1
+    face_length=0;
+    current_image = request.form.get("image");
+    selected_face=int(request.form.get("selected_face"));
+    if len(current_image) > 0  :
+        (
+            most_similar_image,
+            most_similar_face_num,
+            similarity,
+            temp_err,
+        ) = helper.get_most_similar_image(selected_face, current_image)
+        errors = errors + temp_err
+    else:
+        errors.append("no images selected for check")
+    if most_similar_image:
+        messages.append(
+            f"The most similar face is no. {most_similar_face_num+1} in image {most_similar_image} with similarity of {similarity:.4f}"
+        )
+        face_length = helper.create_aligned_images(most_similar_image, [])
+    else:
+        messages.append(f"No similar image was found!");
+    return jsonify(
+        {
+            "image":most_similar_image,
+            "face":most_similar_face_num,
+            "face_length":face_length,
+            "errors": errors,
+            "messages": messages,
+        });
+
 app.secret_key = "your_secret_key"
-
-
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 app.config["ROOT_FOLDER"] = APP_DIR
 
 detector = ModelLoader.load_detector()
 embedder = ModelLoader.load_embedder()
 helper = ImageHelper(detector, embedder, UPLOAD_FOLDER, STATIC_FOLDER)
-
-
-@app.route("/", methods=["GET", "POST"])
-def index():
-    images = []
-    messages = []
-    errors = []
-
-    if not detector:
-        return "Error: Model is not initialized. Check server logs."
-
-    uploaded_images = session.get("uploaded_images", [])
-    faces_length = session.get("faces_length", [0, 0])
-    current_images = session.get("current_images", [])
-
-    if request.method == "POST":
-        face_num_1 = int(request.form.get("face_num1"))
-        face_num_2 = int(request.form.get("face_num2"))
-        combochanges = [face_num_1, face_num_2]
-        action = request.form.get("action")
-        if action == "Upload":
-            current_images = []
-            for image_name in ["image1", "image2"]:
-                file = request.files.get(image_name)
-
-                if file and file.filename:
-                    if ImageHelper.allowed_file(file.filename):
-                        session.pop("uploaded_images", None)
-                        path = os.path.join(UPLOAD_FOLDER, file.filename)
-                        try:
-                            file.save(path)
-                        except Exception as e:
-                            errors.append(
-                                f"Failed to save {file.filename} due to error: {str(e)}"
-                            )
-                        uploaded_images.append(file.filename)
-                        current_images.append(file.filename)
-                    else:
-                        errors.append(f"Invalid file format for {file.filename}. ")
-
-            # Detect faces immediately after uploading to fill the combo box
-
-            for i in range(len(current_images)):
-                faces_length[i] = helper.create_aligned_images(
-                    current_images[i], uploaded_images
-                )
-
-        elif action in ["Detect", "Align"]:
-            for filename in current_images:
-                if "aligned" in filename or "detected" in filename:
-                    path = os.path.join(STATIC_FOLDER, filename)
-                else:
-                    path = os.path.join(UPLOAD_FOLDER, filename)
-
-                    if action == "Align":
-                        face_count = helper.create_aligned_images(
-                            filename, uploaded_images
-                        )
-                        messages.append(f"{face_count} detected faces in {filename}.")
-
-                    elif action == "Detect":
-                        face_count = helper.detect_faces_in_image(
-                            filename, uploaded_images
-                        )
-                        messages.append(f"{face_count} detected faces in {filename}. ")
-
-        elif action == "Clear":
-            uploaded_images = []
-            current_images = []
-            faces_length = [0, 0]
-
-        elif action == "Compare":
-            embeddings = []
-            image_paths = [
-                os.path.join(UPLOAD_FOLDER, filename) for filename in current_images
-            ]
-            for i in range(len(current_images)):
-                if len(current_images) == 2:
-                    # Generate an embedding for a specific face(first by default) in each image
-                    embedding, temp_err = helper.generate_embedding(
-                        image_paths[i], combochanges[i]
-                    )
-                    # Add the errors and embeddings from the helper function to the local variables
-                    errors = errors + temp_err
-                    if embedding is not None:
-                        embeddings.append(embedding)
-                    else:
-                        print("No embedding extracted.")  # Debug log
-                else:
-                    errors.append("Select exactly 2 images for comparison.")
-
-            if len(embeddings) == 2:
-                # Calculate similarity between the two images
-                similarity = ImageHelper.calculate_similarity(
-                    embeddings[0], embeddings[1]
-                )
-                messages.append(f"Similarity: {similarity:.4f}")
-                if similarity >= 0.6518:
-                    messages.append("THIS IS PROBABLY THE SAME PERSON")
-                else:
-                    messages.append("THIS IS PROBABLY NOT THE SAME PERSON")
-
-            elif len(current_images) != 2:
-                errors.append("choose 2 images!")
-            else:
-                errors.append("Error: Failed to extract embeddings from images.")
-
-        elif action == "Check":
-            most_similar_image = None
-            similarity = -1
-            if len(current_images) >0:
-                (
-                    most_similar_image,
-                    most_similar_face_num,
-                    similarity,
-                    temp_err,
-                ) = helper.get_most_similar_image(combochanges[0], current_images[0])
-                errors=errors+temp_err;
-            else:
-                errors.append("no images selected for check");
-            if most_similar_image:
-                messages.append(
-                    f"The most similar face is no. {most_similar_face_num+1} in image {most_similar_image} with similarity of {similarity:.4f}"
-                )
-                if(len(current_images)==1):
-                    current_images.append(most_similar_image);
-                else:
-                    current_images[1]=most_similar_image;
-                
-                faces_length[1] = helper.create_aligned_images(
-                    current_images[1], []
-                )
-        session["current_images"] = current_images
-        session["uploaded_images"] = uploaded_images
-        session["faces_length"] = faces_length
-
-    images = uploaded_images
-
-    return render_template(
-        "image.html",
-        images=images,
-        current=current_images,
-        faces_length=faces_length,
-        errors=errors,
-        messages=messages,
-    )
 
 
 if __name__ == "__main__":

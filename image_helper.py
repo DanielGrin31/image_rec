@@ -122,6 +122,7 @@ class ImageHelper:
         errors=errors+temp_err
         max_similarity = -1
         most_similar_face_num = None
+        most_similar_image=None
         with os.scandir(self.UPLOAD_FOLDER) as entries:
             for entry in entries:
                 if (
