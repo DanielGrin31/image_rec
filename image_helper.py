@@ -135,8 +135,14 @@ class ImageHelper:
         most_similar_image=None;
         max_similarity=-1;
         facenum=-2;
-        user_embedding,temp_err=self.generate_embedding(user_image_path,selected_face);
-        if len(temp_err)==0:
+        aligned_filename=f"aligned_{0 if selected_face == -2 else selected_face}_{filename}";
+        embedding=self.emb_manager.get_embedding_by_name(aligned_filename)
+        if len(embedding)>0:
+            user_embedding=embedding;
+        else:
+            user_embedding,temp_err=self.generate_embedding(user_image_path,selected_face);
+            errors=errors+temp_err;
+        if len(errors)==0:
             np_emb=np.array(user_embedding).astype("float32").reshape(1,-1)
             idx=self.emb_manager.search(np_emb);
             filtered=[]

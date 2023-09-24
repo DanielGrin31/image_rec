@@ -139,7 +139,7 @@ def compare_image():
     ]
     for i in range(len(uploaded_images)):
         if len(uploaded_images) == 2:
-            filename=f"aligned_{combochanges[i]}_{uploaded_images[i]}"
+            filename=f"aligned_{0 if combochanges[i] == -2 else combochanges[i]}_{uploaded_images[i]}"
             embedding=manager.get_embedding_by_name(filename)
             if len(embedding)>0:
                 embeddings.append(embedding);
