@@ -2,10 +2,10 @@ from flask import Flask, render_template, request, session, url_for, redirect, j
 import os
 import requests as req
 from image_helper import ImageHelper
+from image_embedding_manager import ImageEmbeddingManager
 from model_loader import ModelLoader
 from flask_cors import CORS, cross_origin
 from flask import send_from_directory
-import tempfile
 APP_DIR = os.path.dirname(__file__)
 UPLOAD_FOLDER = os.path.join(APP_DIR, "pool")
 STATIC_FOLDER = os.path.join(APP_DIR, "static")
@@ -43,6 +43,8 @@ def upload_image():
                 path = os.path.join(UPLOAD_FOLDER, file.filename)
                 try:
                     file.save(path)
+                    # Generate the embeddings for all faces and store them for future indexing
+                    helper.generate_all_emb(path,file.filename);
                 except Exception as e:
                     errors.append(
                         f"Failed to save {file.filename} due to error: {str(e)}"
@@ -121,7 +123,6 @@ def detect_image():
 
 @app.route("/api/compare", methods=["POST"])
 def compare_image():
-
     uploaded_images = request.form.getlist("images");
     combochanges=[int(x) for x in request.form.getlist("selected_faces")];
     embeddings = []
@@ -132,16 +133,21 @@ def compare_image():
     ]
     for i in range(len(uploaded_images)):
         if len(uploaded_images) == 2:
-            # Generate an embedding for a specific face(first by default) in each image
-            embedding, temp_err = helper.generate_embedding(
-                image_paths[i], combochanges[i]
-            )
-            # Add the errors and embeddings from the helper function to the local variables
-            errors = errors + temp_err
-            if embedding is not None:
-                embeddings.append(embedding)
+            filename=f"aligned_{combochanges[i]}_{uploaded_images[i]}"
+            embedding=manager.get_embedding_by_name(filename)
+            if len(embedding)>0:
+                embeddings.append(embedding);
             else:
-                print("No embedding extracted.")  # Debug log
+                # Generate an embedding for a specific face(first by default) in each image
+                embedding, temp_err = helper.generate_embedding(
+                    image_paths[i], combochanges[i]
+                )
+                # Add the errors and embeddings from the helper function to the local variables
+                errors = errors + temp_err
+                if embedding is not None:
+                    embeddings.append(embedding)
+                else:
+                    print("No embedding extracted.")  # Debug log
         else:
             errors.append("Select exactly 2 images for comparison.")
 
@@ -208,7 +214,8 @@ app.config["ROOT_FOLDER"] = APP_DIR
 
 detector = ModelLoader.load_detector()
 embedder = ModelLoader.load_embedder()
-helper = ImageHelper(detector, embedder, UPLOAD_FOLDER, STATIC_FOLDER)
+manager =ImageEmbeddingManager();
+helper = ImageHelper(detector, embedder,manager, UPLOAD_FOLDER, STATIC_FOLDER)
 
 
 if __name__ == "__main__":
