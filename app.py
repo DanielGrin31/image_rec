@@ -44,20 +44,26 @@ def upload_image():
                 try:
                     file.save(path)
                     # Generate the embeddings for all faces and store them for future indexing
-                    helper.generate_all_emb(path,file.filename);
+                    temp_err=helper.generate_all_emb(path,file.filename);
+                    errors=errors+temp_err;
+
+                    if(len(errors)>0):
+                        os.remove(path);
+                    else:
+                        current_images.append(file.filename)
+                        images.append(file.filename)
                 except Exception as e:
                     errors.append(
                         f"Failed to save {file.filename} due to error: {str(e)}"
                     )
-                images.append(file.filename)
-                current_images.append(file.filename)
+                
             else:
                 errors.append(f"Invalid file format for {file.filename}. ")
 
+    if(len(errors)==0):
     # Detect faces immediately after uploading to fill the combo box
-
-    for i in range(len(current_images)):
-        faces_length[i] = helper.create_aligned_images(current_images[i], images)
+        for i in range(len(current_images)):
+            faces_length[i] = helper.create_aligned_images(current_images[i], images)
     return jsonify({"images": images, "faces_length": faces_length, "errors": errors})
 
 
@@ -197,16 +203,14 @@ def find_similar_image():
             f"The most similar face is no. {most_similar_face_num+1} in image {most_similar_image} with similarity of {similarity:.4f}"
         )
         face_length = helper.create_aligned_images(most_similar_image, [])
-    else:
-        messages.append(f"No similar image was found!");
     return jsonify(
-        {
-            "image":most_similar_image,
-            "face":most_similar_face_num,
-            "face_length":face_length,
-            "errors": errors,
-            "messages": messages,
-        });
+    {
+        "image":most_similar_image,
+        "face":most_similar_face_num,
+        "face_length":face_length,
+        "errors": errors,
+        "messages": messages,
+    });
 
 app.secret_key = "your_secret_key"
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER

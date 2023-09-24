@@ -15,9 +15,11 @@ class ImageEmbeddingManager:
         return closest_idx[1][0];
     
     def add_embedding(self,embedding,name):
-        self.db_embeddings["names"].append(name);
-        self.db_embeddings["embeddings"]=np.vstack(
-        (self.db_embeddings["embeddings"],np.array(embedding).reshape(1,-1)));
+        existing=self.get_embedding_by_name(name);
+        if(len(existing)==0):
+            self.db_embeddings["names"].append(name);
+            self.db_embeddings["embeddings"]=np.vstack(
+            (self.db_embeddings["embeddings"],np.array(embedding).reshape(1,-1)));
 
     def get_name(self,idx):
         return self.db_embeddings["names"][idx];
