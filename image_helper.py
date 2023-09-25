@@ -13,6 +13,7 @@ class ImageHelper:
         ".bmp",
         ".tif",
         ".tiff",
+        ".webp"
     }
 
     # Load model on startup
