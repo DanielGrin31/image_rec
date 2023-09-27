@@ -27,7 +27,7 @@ class ImageEmbeddingManager:
     def search(self,embedding):
         data=self.db_embeddings["embeddings"];
         # Define the number of clusters (nlist) for the IVFPQ index
-        threshold = 100;
+        threshold = 1000;
         if len(data)>=threshold:
             # Define the number of subquantizers (m) and number of bits per subquantizer (nbits)
             self.train_IVFPQ_index(data);
@@ -54,9 +54,13 @@ class ImageEmbeddingManager:
 
 
     def get_name(self,idx):
-        return self.db_embeddings["names"][idx];
+        if(len(self.db_embeddings["names"])>0):
+            return self.db_embeddings["names"][idx];
+        return "";
     def get_embedding(self,idx):
-        return self.db_embeddings["embeddings"][idx];
+        if(len(self.db_embeddings["embeddings"])>0):
+            return self.db_embeddings["embeddings"][idx];
+        return [];
     def get_index_by_name(self,name):
         try:
             return self.db_embeddings["names"].index(name);

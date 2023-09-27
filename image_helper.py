@@ -151,7 +151,8 @@ class ImageHelper:
                 name=self.emb_manager.get_name(i);
                 if(name.split('_')[-1]!=filename):
                     filtered.append({"index":i,"name":name})
-            valid=[x for x in filtered if not np.allclose(self.emb_manager.get_embedding(x['index']),user_embedding,rtol=1e-5,atol=1e-8)]
+            valid=[x for x in filtered if len(emb := self.emb_manager.get_embedding(x['index']))>0 
+                   and not np.allclose(emb,user_embedding,rtol=1e-5,atol=1e-8)]
             if(len(valid)>0):
                 match=valid[0]['name'];
                 _,facenum,most_similar_image=match.split('_');
