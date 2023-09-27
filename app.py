@@ -1,6 +1,5 @@
 from flask import Flask, render_template, request, session, url_for, redirect, jsonify
 import os
-import requests as req
 from image_helper import ImageHelper
 from image_embedding_manager import ImageEmbeddingManager
 from model_loader import ModelLoader
@@ -36,34 +35,36 @@ def upload_image():
     current_images = []
     for image_name in ["image1", "image2"]:
         file = request.files.get(image_name)
-
+        
         if file and file.filename:
-            if ImageHelper.allowed_file(file.filename):
+            filename=file.filename.replace('_','');
+            if ImageHelper.allowed_file(filename):
                 session.pop("uploaded_images", None)
-                path = os.path.join(UPLOAD_FOLDER, file.filename)
+                path = os.path.join(UPLOAD_FOLDER,filename)
                 try:
                     file.save(path)
                     # Generate the embeddings for all faces and store them for future indexing
-                    temp_err=helper.generate_all_emb(path,file.filename);
+                    temp_err=helper.generate_all_emb(path,filename);
                     errors=errors+temp_err;
 
                     if(len(errors)>0):
                         os.remove(path);
                     else:
-                        current_images.append(file.filename)
-                        images.append(file.filename)
+                        current_images.append(filename)
+                        images.append(filename)
                 except Exception as e:
                     errors.append(
-                        f"Failed to save {file.filename} due to error: {str(e)}"
+                        f"Failed to save {filename} due to error: {str(e)}"
                     )
                 
             else:
-                errors.append(f"Invalid file format for {file.filename}. ")
+                errors.append(f"Invalid file format for {filename}. ")
 
     if(len(errors)==0):
     # Detect faces immediately after uploading to fill the combo box
         for i in range(len(current_images)):
             faces_length[i] = helper.create_aligned_images(current_images[i], images)
+        manager.save();
     return jsonify({"images": images, "faces_length": faces_length, "errors": errors})
 
 
@@ -125,6 +126,11 @@ def detect_image():
             "messages": messages,
         }
     )
+@app.route("/api/delete",methods=["GET","POST"])
+def save_embeddings():
+    manager.delete();
+    return jsonify({"result":"success"})
+@app.route("/api/load",methods=["GET","POST"])
 
 
 @app.route("/api/compare", methods=["POST"])
@@ -220,7 +226,7 @@ detector = ModelLoader.load_detector()
 embedder = ModelLoader.load_embedder()
 manager =ImageEmbeddingManager();
 helper = ImageHelper(detector, embedder,manager, UPLOAD_FOLDER, STATIC_FOLDER)
-
+manager.load();
 
 if __name__ == "__main__":
     try:
