@@ -134,6 +134,7 @@ class ImageHelper:
         user_image_path = os.path.join(self.UPLOAD_FOLDER, filename)
         errors=[]
         most_similar_image=None;
+        most_similar_face=-2;
         max_similarity=-1;
         facenum=-2;
         aligned_filename=f"aligned_{0 if selected_face == -2 else selected_face}_{filename}";
@@ -145,26 +146,34 @@ class ImageHelper:
             errors=errors+temp_err;
         if len(errors)==0:
             np_emb=np.array(user_embedding).astype("float32").reshape(1,-1)
-            idx=self.emb_manager.search(np_emb);
+            result=self.emb_manager.search(np_emb);
             filtered=[]
-            for i in idx:
+            for r in result:
+                i=r["index"];
                 name=self.emb_manager.get_name(i);
                 if(name.split('_')[-1]!=filename):
                     filtered.append({"index":i,"name":name})
-            valid=[x for x in filtered if not np.allclose(self.emb_manager.get_embedding(x['index']),user_embedding,rtol=1e-5,atol=1e-8)]
-            if(len(valid)>0):
-                match=valid[0]['name'];
-                _,facenum,most_similar_image=match.split('_');
-                max_similarity=ImageHelper.calculate_similarity(
-                    self.emb_manager.get_embedding(valid[0]['index'])
+            valid=[x for x in filtered if len(emb := self.emb_manager.get_embedding(x['index']))>0 
+                   and not np.allclose(emb,user_embedding,rtol=1e-5,atol=1e-8)]
+            for image in valid:
+                
+                match=image['name'];
+                _,facenum,filename=match.split('_');
+                similarity=ImageHelper.calculate_similarity(
+                    self.emb_manager.get_embedding(image['index'])
                     ,user_embedding);
-            else:
+                if(similarity>max_similarity):
+                    max_similarity=similarity;
+                    most_similar_image=filename;
+                    most_similar_face=int(facenum);
+            if len(valid)==0:
                 errors.append("No unique matching faces found!");
         else:
             errors=errors+temp_err;
-        return most_similar_image,int(facenum),max_similarity,errors;
+        return most_similar_image,most_similar_face,max_similarity,errors;
 
     @staticmethod
     def allowed_file(filename):
         extension=os.path.splitext(filename)[1];
         return extension.lower() in ImageHelper.ALLOWED_EXTENSIONS;
+    
