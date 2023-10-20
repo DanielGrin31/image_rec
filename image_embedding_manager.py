@@ -26,17 +26,17 @@ class ImageEmbeddingManager:
         self.index = faiss.IndexHNSWFlat( d,M);
         self.index.add(data);
     
-    def search(self,embedding):
+    def search(self,embedding,k):
         data=self.db_embeddings["embeddings"];
         # Define the number of clusters (nlist) for the IVFPQ index
-        threshold = 256;
+        threshold = 25600;
         if len(data)>=threshold:
             # Define the number of subquantizers (m) and number of bits per subquantizer (nbits)
             self.train_IVFPQ_index(data);
         else:
             self.index = faiss.IndexFlatIP(512);
             self.index.add(data)
-        return self.find_closest_vector(embedding);
+        return self.find_closest_vector(embedding,k);
         
     def delete(self):
         self.db_embeddings={"names":[],"embeddings":np.empty((0, 512), dtype='float32')};
@@ -50,7 +50,7 @@ class ImageEmbeddingManager:
             with open(ImageEmbeddingManager.PKL_path, 'rb') as file:
                 self.db_embeddings = pickle.load(file)
 
-    def find_closest_vector(self,new_vector,k=5):
+    def find_closest_vector(self,new_vector,k):
 
         distances,indexes = self.index.search(new_vector, k)
         # return indexes based on distance
@@ -90,3 +90,4 @@ class ImageEmbeddingManager:
             return self.db_embeddings["embeddings"][index];
         except ValueError:
             return [];
+

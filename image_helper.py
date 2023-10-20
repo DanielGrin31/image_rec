@@ -93,22 +93,25 @@ class ImageHelper:
             print("Error during embedding extraction:", e)  # Debug log
             return None
         
-    def generate_all_emb(self,path,filename):
+    def generate_all_emb(self,path,filename,save=True):
         errors=[];
         embedding=None;
+        embeddings=[];
         if self.embedder:
             img = cv2.imread(path)
             faces = self.embedder.get(img)
             if faces:
                 for i in range(len(faces)):
                     embedding = ImageHelper.extract_embedding(faces[i]);
-                    self.emb_manager.add_embedding(embedding,f"aligned_{i}_{filename}");
+                    embeddings.append(embedding);
+                    if(save):
+                        self.emb_manager.add_embedding(embedding,f"aligned_{i}_{filename}");
             else:
                 print("No faces detected.")  # Debug log
                 errors.append("No faces detected in one or both images.")
         else:
             errors.append("Error: Embedder model not initialized.")
-        return errors;
+        return embeddings,errors;
 
     def generate_embedding(self,path,selected_face):
         errors=[];
@@ -129,7 +132,21 @@ class ImageHelper:
         else:
             errors.append("Error: Embedder model not initialized.")
         return embedding,errors;
-
+    def get_similar_images(self,user_embedding,filename,k=5):
+        np_emb=np.array(user_embedding).astype("float32").reshape(1,-1)
+        result=self.emb_manager.search(np_emb,k);
+        filtered=[]
+        seen_distances=[]
+        for r in result:
+            if r["distance"] not in seen_distances:
+                seen_distances.append(r["distance"])
+                i=r["index"];
+                name=self.emb_manager.get_name(i);
+                if(name.split('_')[-1]!=filename):
+                    filtered.append({"index":i,"name":name})
+        valid=[x for x in filtered if len(emb := self.emb_manager.get_embedding(x['index']))>0 
+                and not np.allclose(emb,user_embedding,rtol=1e-5,atol=1e-8)]
+        return valid;
     def get_most_similar_image(self,selected_face,filename):
         user_image_path = os.path.join(self.UPLOAD_FOLDER, filename)
         errors=[]
@@ -145,16 +162,7 @@ class ImageHelper:
             user_embedding,temp_err=self.generate_embedding(user_image_path,selected_face);
             errors=errors+temp_err;
         if len(errors)==0:
-            np_emb=np.array(user_embedding).astype("float32").reshape(1,-1)
-            result=self.emb_manager.search(np_emb);
-            filtered=[]
-            for r in result:
-                i=r["index"];
-                name=self.emb_manager.get_name(i);
-                if(name.split('_')[-1]!=filename):
-                    filtered.append({"index":i,"name":name})
-            valid=[x for x in filtered if len(emb := self.emb_manager.get_embedding(x['index']))>0 
-                   and not np.allclose(emb,user_embedding,rtol=1e-5,atol=1e-8)]
+            valid=self.get_similar_images(user_embedding,filename);
             for image in valid:
                 
                 match=image['name'];
@@ -171,6 +179,8 @@ class ImageHelper:
         else:
             errors=errors+temp_err;
         return most_similar_image,most_similar_face,max_similarity,errors;
+
+
 
     @staticmethod
     def allowed_file(filename):

@@ -4,7 +4,7 @@ class ModelLoader:
     def load_detector():
         try:
             face_analyzer = FaceAnalysis(name="buffalo_l", allowed_modules=["detection"])
-            face_analyzer.prepare(ctx_id=0, det_thresh=0.5, det_size=(640, 640))
+            face_analyzer.prepare(ctx_id=1, det_thresh=0.7, det_size=(1024, 1024))
             return face_analyzer
 
         except Exception as e:

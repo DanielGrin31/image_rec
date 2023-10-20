@@ -1,9 +1,13 @@
 from flask import Flask, render_template, request, session, url_for, redirect, jsonify
 import os
+import tempfile
 from image_helper import ImageHelper
 from image_embedding_manager import ImageEmbeddingManager
 from model_loader import ModelLoader
 from flask_cors import CORS, cross_origin
+from sklearn.cluster import DBSCAN
+import numpy as np;
+from sklearn.metrics.pairwise import cosine_similarity
 from flask import send_from_directory
 APP_DIR = os.path.dirname(__file__)
 UPLOAD_FOLDER = os.path.join(APP_DIR, "pool")
@@ -31,10 +35,10 @@ def processed_static(filename):
 def upload_image():
     images = []
     errors = []
-    faces_length = [0, 0]
+    files=request.files.items();
+    faces_length = [0]*len(request.files)
     current_images = []
-    for image_name in ["image1", "image2"]:
-        file = request.files.get(image_name)
+    for image_name,file in request.files.items():
         
         if file and file.filename:
             filename=file.filename.replace('_','');
@@ -44,11 +48,12 @@ def upload_image():
                 try:
                     file.save(path)
                     # Generate the embeddings for all faces and store them for future indexing
-                    temp_err=helper.generate_all_emb(path,filename);
+                    _,temp_err=helper.generate_all_emb(path,filename);
                     errors=errors+temp_err;
 
-                    if(len(errors)>0):
+                    if(len(temp_err)>0):
                         os.remove(path);
+                        current_images.append(None)
                     else:
                         current_images.append(filename)
                         images.append(filename)
@@ -60,13 +65,18 @@ def upload_image():
             else:
                 errors.append(f"Invalid file format for {filename}. ")
 
-    if(len(errors)==0):
+    # if(len(errors)==0):
     # Detect faces immediately after uploading to fill the combo box
         for i in range(len(current_images)):
-            faces_length[i] = helper.create_aligned_images(current_images[i], images)
+            if(current_images[i]):
+                faces_length[i] = helper.create_aligned_images(current_images[i], images)
         manager.save();
     return jsonify({"images": images, "faces_length": faces_length, "errors": errors})
 
+@app.route("/api/delete ",methods=["GET","POST"])
+def delete_embeddings():
+    manager.delete();
+    return jsonify({"result":"success"})
 
 @app.route("/api/align", methods=["POST"])
 def align_image():
@@ -126,11 +136,7 @@ def detect_image():
             "messages": messages,
         }
     )
-@app.route("/api/delete",methods=["GET","POST"])
-def save_embeddings():
-    manager.delete();
-    return jsonify({"result":"success"})
-@app.route("/api/load",methods=["GET","POST"])
+
 
 
 @app.route("/api/compare", methods=["POST"])
@@ -184,7 +190,52 @@ def compare_image():
                 "errors": errors,
                 "messages": messages,
             });
-
+@app.route("/api/cluster",methods=["POST"])
+def cluster_embeddings():
+    # Assuming 'embeddings' is a list of your 512-dimensional embeddings
+    similarity_matrix = cosine_similarity(manager.db_embeddings["embeddings"])
+    similarity_matrix=np.clip(similarity_matrix,-1,1)
+    # Apply DBSCAN
+    dbscan = DBSCAN(eps=0.45, min_samples=3, metric="precomputed")
+    labels = dbscan.fit_predict(1 - similarity_matrix)  # Convert similarity to distance
+    unique_values=np.unique(labels);
+    index_groups = {value: np.where(labels == value)[0] for value in unique_values}
+    value_groups = {int(key):  [manager.db_embeddings["names"][index] for index in indexes] for key, indexes in index_groups.items()}
+    return jsonify(value_groups)
+@app.route("/api/check_many", methods=["POST"])
+def find_similar_images():
+    errors=[];
+    images=[];
+    files=request.files.items();
+    k=int(request.form.get("number_of_images",5));
+    with tempfile.TemporaryDirectory() as temp_dir:
+        for image_name,file in files:
+            if file and file.filename:
+                filename=file.filename.replace('_','');
+                if ImageHelper.allowed_file(filename):
+                    path = os.path.join(temp_dir,filename)
+                    try:
+                        file.save(path)
+                        # Generate the embeddings for all faces and store them for future indexing
+                        embs,temp_err=helper.generate_all_emb(path,filename,False);
+                        similar=helper.get_similar_images(embs[0],filename,k)
+                        for x in similar:
+                            sim_emb=manager.get_embedding(x['index']);
+                            similarity = ImageHelper.calculate_similarity(
+                                embs[0], sim_emb
+                            )
+                            images.append({"name":x["name"],"similarity":float(similarity)})
+                        
+                        errors=errors+temp_err;
+                        
+                    except Exception as e:
+                        errors.append(
+                            f"Failed to save {filename} due to error: {str(e)}"
+                        )
+                    
+                else:
+                    errors.append(f"Invalid file format for {filename}. ")
+    return jsonify({"images": images, "errors": errors})
 @app.route("/api/check", methods=["POST"])
 def find_similar_image():
     most_similar_image = None
