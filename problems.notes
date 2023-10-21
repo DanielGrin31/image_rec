@@ -1,5 +1,0 @@
-PROBLEMS:
-1. Cropped and zoomed in images dont get recognized as faces - working on it
-2. Blurry faces get recognized as well and clutter the database - increase det_thresh
-3. Some people get recognized as two or more groups in clustering. - calculate similarity between clusters
-4. No video capabilities - cut video into frames and feed into image detection

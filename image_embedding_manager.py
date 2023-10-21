@@ -12,7 +12,7 @@ class ImageEmbeddingManager:
         d=512;
         # Define the number of subquantizers (m) and number of bits per subquantizer (nbits)
         m = 16
-        nbits = 8
+        nbits = int(math.floor(np.log2(len(data))))
         quantizer = faiss.IndexFlatIP(d);
         self.index = faiss.IndexIVFPQ(quantizer, d, nlist, m, nbits)
         
