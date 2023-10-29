@@ -61,7 +61,14 @@ class ImageEmbeddingManager:
             obj = {'index': indexes[0][i], 'distance': distances[0][i]}
             result.append(obj)
         return result;
-    
+
+    def remove_embedding_by_name(self,name):
+        index=self.get_index_by_name(name);
+        self.remove_embedding_by_index(index);
+    def remove_embedding_by_index(self,index):
+        if(index>-1):
+            self.db_embeddings["names"].pop(index);
+            self.db_embeddings["embeddings"]=np.delete(self.db_embeddings["embeddings"],index,axis=0);
     def add_embedding(self,embedding,name):
         existing=self.get_embedding_by_name(name);
         if(len(existing)==0):
@@ -69,8 +76,6 @@ class ImageEmbeddingManager:
             self.db_embeddings["names"].append(name);
             self.db_embeddings["embeddings"]=np.vstack(
             (self.db_embeddings["embeddings"],np_emb));
-
-
     def get_name(self,idx):
         if(len(self.db_embeddings["names"])>0):
             return self.db_embeddings["names"][idx];

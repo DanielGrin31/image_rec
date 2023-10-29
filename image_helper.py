@@ -1,6 +1,8 @@
 import numpy as np
 from insightface.utils.face_align import norm_crop
 import os
+from sklearn.cluster import DBSCAN
+from sklearn.metrics.pairwise import cosine_similarity
 import util
 import cv2
 from PIL import Image
@@ -18,20 +20,15 @@ class ImageHelper:
     }
 
     # Load model on startup
-    def __init__(self, detector,detector_zoomed,embedder,emb_manager, UPLOAD_FOLDER, STATIC_FOLDER):
+    def __init__(self, detector,detector_zoomed,embedder,groups,emb_manager, UPLOAD_FOLDER, STATIC_FOLDER):
         self.detector = detector
         self.detector_zoomed = detector_zoomed
         self.embedder = embedder
         self.UPLOAD_FOLDER = UPLOAD_FOLDER
         self.STATIC_FOLDER = STATIC_FOLDER
+        self.groups=groups;
         self.emb_manager=emb_manager;
 
-    @staticmethod
-    def calculate_similarity(emb_a, emb_b):
-        similarity = np.dot(emb_a, emb_b) / (
-            np.linalg.norm(emb_a) * np.linalg.norm(emb_b)
-        )
-        return similarity
 
     def __align_single_image(self, face, selected_face, filename, img):
         landmarks = face["kps"].astype(int)
@@ -142,6 +139,7 @@ class ImageHelper:
         else:
             errors.append("Error: Embedder model not initialized.")
         return embedding,errors;
+
     def get_similar_images(self,user_embedding,filename,k=5):
         np_emb=np.array(user_embedding).astype("float32").reshape(1,-1)
         result=self.emb_manager.search(np_emb,k);
@@ -157,6 +155,24 @@ class ImageHelper:
         valid=[x for x in filtered if len(emb := self.emb_manager.get_embedding(x['index']))>0 
                 and not np.allclose(emb,user_embedding,rtol=1e-5,atol=1e-8)]
         return valid;
+    def filter(self,threshold):
+        manager=self.emb_manager
+        errors=[]
+        
+        original_length=len(manager.db_embeddings["names"]);
+        for name in manager.db_embeddings["names"]:
+            embedding=manager.get_embedding_by_name(name)
+            valid=self.get_similar_images(embedding,name.split('_')[-1]);
+            for image in valid:            
+                match=image['name'];
+                _,facenum,filename=match.split('_');
+                similarity=util.calculate_similarity(
+                    self.emb_manager.get_embedding(image['index'])
+                    ,embedding);
+                if(similarity>threshold):
+                    manager.remove_embedding_by_index(image['index']);
+        filtered_length=len(manager.db_embeddings["names"]);
+        return original_length-filtered_length;
     def get_most_similar_image(self,selected_face,filename):
         user_image_path = os.path.join(self.UPLOAD_FOLDER, filename)
         errors=[]
@@ -177,7 +193,7 @@ class ImageHelper:
                 try:  
                     match=image['name'];
                     _,facenum,filename=match.split('_');
-                    similarity=ImageHelper.calculate_similarity(
+                    similarity=util.calculate_similarity(
                         self.emb_manager.get_embedding(image['index'])
                         ,user_embedding);
                     if(similarity>max_similarity):
@@ -195,3 +211,20 @@ class ImageHelper:
     def allowed_file(filename):
         extension=os.path.splitext(filename)[1];
         return extension.lower() in ImageHelper.ALLOWED_EXTENSIONS;
+    
+
+    def cluster_images(self,max_distance,min_samples):
+        # Assuming 'embeddings' is a list of your 512-dimensional embeddings
+        similarity_matrix = cosine_similarity(self.emb_manager.db_embeddings["embeddings"])
+        similarity_matrix = np.clip(similarity_matrix, -1, 1)
+        # Apply DBSCAN
+
+        dbscan = DBSCAN(eps=max_distance, min_samples=min_samples, metric="precomputed")
+        labels = dbscan.fit_predict(1 - similarity_matrix)  # Convert similarity to distance
+        unique_values = np.unique(labels)
+        index_groups = {value: np.where(labels == value)[0] for value in unique_values}
+        value_groups = {
+            int(key): [self.emb_manager.db_embeddings["names"][index] for index in indexes]
+            for key, indexes in index_groups.items()
+        }
+        return value_groups;

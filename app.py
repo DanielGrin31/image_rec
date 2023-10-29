@@ -1,13 +1,15 @@
 from flask import Flask, render_template, request, session, url_for, redirect, jsonify
 import os
+import json
+import util
 import tempfile
+import traceback;
 from image_helper import ImageHelper
 from image_embedding_manager import ImageEmbeddingManager
+from image_group_repository import ImageGroupRepository
 from model_loader import ModelLoader
 from flask_cors import CORS, cross_origin
-from sklearn.cluster import DBSCAN
-import numpy as np
-from sklearn.metrics.pairwise import cosine_similarity
+
 from flask import send_from_directory
 
 APP_DIR = os.path.dirname(__file__)
@@ -22,11 +24,13 @@ cors = CORS(app, resources={r"/*": {"origins": "*"}})  # Allow all origins
 
 
 @app.route("/pool/<path:filename>")
+@cross_origin()
 def custom_static(filename):
     return send_from_directory(UPLOAD_FOLDER, filename)
 
 
 @app.route("/static_images/<path:filename>")
+@cross_origin()
 def processed_static(filename):
     return send_from_directory(STATIC_FOLDER, filename)
 
@@ -38,7 +42,7 @@ def upload_image():
     files = request.files.items()
     faces_length = [0] * len(request.files)
     current_images = []
-    for image_name, file in request.files.items():
+    for image_name, file in files:
         if file and file.filename:
             filename = file.filename.replace("_", "")
             # if ImageHelper.allowed_file(filename):
@@ -57,6 +61,7 @@ def upload_image():
                     current_images.append(filename)
                     images.append(filename)
             except Exception as e:
+                tb=traceback.format_exc();
                 errors.append(f"Failed to save {filename} due to error: {str(e)}")
 
             # else:
@@ -166,7 +171,7 @@ def compare_image():
 
     if len(embeddings) == 2:
         # Calculate similarity between the two images
-        similarity = ImageHelper.calculate_similarity(embeddings[0], embeddings[1])
+        similarity = util.calculate_similarity(embeddings[0], embeddings[1])
         messages.append(f"Similarity: {similarity:.4f}")
         if similarity >= 0.6518:
             messages.append("THIS IS PROBABLY THE SAME PERSON")
@@ -214,23 +219,48 @@ def find_face_in_image():
     )
 
 
+@app.route("/api/filter",methods=["GET"])
+def filter():
+    threshold = float(request.form.get("threshold", 999))
+    if threshold<1:
+        deleted=helper.filter(threshold)
+        return jsonify({"success":"true","deleted":deleted})
+    return jsonify({"success":"false","error":"threshold must be below 1"})
+
 @app.route("/api/cluster", methods=["POST"])
-def cluster_embeddings():
-    # Assuming 'embeddings' is a list of your 512-dimensional embeddings
-    similarity_matrix = cosine_similarity(manager.db_embeddings["embeddings"])
-    similarity_matrix = np.clip(similarity_matrix, -1, 1)
-    # Apply DBSCAN
-    dbscan = DBSCAN(eps=0.6, min_samples=3, metric="precomputed")
-    labels = dbscan.fit_predict(1 - similarity_matrix)  # Convert similarity to distance
-    unique_values = np.unique(labels)
-    index_groups = {value: np.where(labels == value)[0] for value in unique_values}
-    value_groups = {
-        int(key): [manager.db_embeddings["names"][index] for index in indexes]
-        for key, indexes in index_groups.items()
-    }
-    return jsonify(value_groups)
+def get_groups():
+    jsonData=request.get_data();
+    data=json.loads(jsonData) if jsonData else {};
+    eps=float(data["max_distance"]) if "max_distance" in data else 0.5; 
+    min_samples=int(data["min_samples"]) if "min_samples" in data else 4; 
+    retrain=data["retrain"] if "retrain" in data else False; 
+    value_groups=helper.cluster_images(eps,min_samples);
+    if(retrain):
+        groups.train_index(value_groups);
+        groups.save_index();
+        return jsonify(value_groups);
+    modified_group={};
+    index=groups.index;
+    for cluster_id,images in value_groups.items():
+        for image in images:
+            group_name=cluster_id;
+            if(image in index):
+                group_name=index[image];
+            if(group_name in modified_group):
+                modified_group[group_name].append(image);
+            else:
+                modified_group[group_name]=[image];
+    return jsonify(modified_group);
 
 
+@app.route("/api/change_group_name", methods=["POST"])
+def change_group_name():
+    data=json.loads(request.get_data());
+    old= data['old'];
+    new= data['new'];
+    if(old and new and old.strip() and new.strip()):
+        groups.change_group_name(old,new);
+    return jsonify(success=True);
 @app.route("/api/check_many", methods=["POST"])
 def find_similar_images():
     errors = []
@@ -250,7 +280,7 @@ def find_similar_images():
                         similar = helper.get_similar_images(embs[0], filename, k)
                         for x in similar:
                             sim_emb = manager.get_embedding(x["index"])
-                            similarity = ImageHelper.calculate_similarity(
+                            similarity =  util.calculate_similarity(
                                 embs[0], sim_emb
                             )
                             images.append(
@@ -260,7 +290,7 @@ def find_similar_images():
                         errors = errors + temp_err
 
                     except Exception as e:
-                        errors.append(
+                       errors.append(
                             f"Failed to save {filename} due to error: {str(e)}"
                         )
 
@@ -309,11 +339,12 @@ app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 app.config["ROOT_FOLDER"] = APP_DIR
 
 detector = ModelLoader.load_detector(1024)
-detector_zoomed = ModelLoader.load_detector(320)
+detector_zoomed = ModelLoader.load_detector(160)
 embedder = ModelLoader.load_embedder()
-manager = ImageEmbeddingManager()
+manager = ImageEmbeddingManager();
+groups = ImageGroupRepository();
 helper = ImageHelper(
-    detector, detector_zoomed, embedder, manager, UPLOAD_FOLDER, STATIC_FOLDER
+    detector, detector_zoomed, embedder,groups, manager, UPLOAD_FOLDER, STATIC_FOLDER
 )
 manager.load()
 
