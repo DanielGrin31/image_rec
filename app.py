@@ -227,6 +227,12 @@ def filter():
         return jsonify({"success":"true","deleted":deleted})
     return jsonify({"success":"false","error":"threshold must be below 1"})
 
+@app.route("/api/ping",methods=["GET"])
+def ping():
+    return jsonify({"response":"pong"});
+
+
+
 @app.route("/api/cluster", methods=["POST"])
 def get_groups():
     jsonData=request.get_data();
@@ -251,6 +257,10 @@ def get_groups():
             else:
                 modified_group[group_name]=[image];
     return jsonify(modified_group);
+
+@app.route("/api/video",methods=["POST"])
+def process_video():
+    pass;
 
 
 @app.route("/api/change_group_name", methods=["POST"])
