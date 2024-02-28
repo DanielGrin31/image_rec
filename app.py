@@ -87,7 +87,7 @@ def delete_embeddings():
 @app.route("/api/align", methods=["POST"])
 def align_image():
     uploaded_images = request.form.getlist("images")
-    faces_length = [0, 0]
+    faces_length = []
     messages = []
     errors = []
     images = []
@@ -99,7 +99,7 @@ def align_image():
             path = os.path.join(UPLOAD_FOLDER, filename)
         if os.path.exists(path):
             face_count = helper.create_aligned_images(filename, images)
-            faces_length[i] = face_count
+            faces_length.append(face_count)
             messages.append(f"{face_count} detected faces in {filename}.")
         else:
             errors.append(f"File {filename} does not exist!")
@@ -187,6 +187,7 @@ def compare_image():
         {
             "errors": errors,
             "messages": messages,
+            "similarity":similarity
         }
     )
 
@@ -219,13 +220,13 @@ def find_face_in_image():
     )
 
 
-@app.route("/api/filter",methods=["GET"])
+@app.route("/api/filter",methods=["POST"])
 def filter():
     threshold = float(request.form.get("threshold", 999))
     if threshold<1:
         deleted=helper.filter(threshold)
-        return jsonify({"success":"true","deleted":deleted})
-    return jsonify({"success":"false","error":"threshold must be below 1"})
+        return jsonify({"success":True,"deleted":deleted})
+    return jsonify({"success":False,"error":"threshold must be below 1"})
 
 @app.route("/api/ping",methods=["GET"])
 def ping():
